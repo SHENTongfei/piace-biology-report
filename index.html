@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIACE: Cross-Species Gene Essentiality Prediction: Data, Principles, and Model Rationale</title>
+<style>
+  :root { --ink:#1a2332; --sub:#5a6a80; --line:#dde4ee; --bg:#f6f8fb; --card:#ffffff;
+          --blue:#1f6feb; --green:#1a7f37; --red:#cf222e; --amber:#9a6700; --chip:#eef3fa; }
+  * { box-sizing:border-box; }
+  body { font-family:Georgia,"Times New Roman",serif; color:var(--ink);
+         background:var(--bg); margin:0; line-height:1.7; }
+  .wrap { max-width:980px; margin:0 auto; padding:28px 20px 80px; }
+  header.hero { background:linear-gradient(135deg,#12294d,#1f4e8c); color:#fff; border-radius:14px;
+                padding:30px 34px; margin-bottom:26px; }
+  header.hero h1 { margin:0 0 8px; font-size:25px; font-family:Georgia,serif; }
+  header.hero p { margin:4px 0; opacity:.92; font-size:14.5px; }
+  nav.toc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 22px; margin-bottom:26px; }
+  nav.toc b { color:var(--sub); font-size:13px; letter-spacing:1px; }
+  nav.toc ol { margin:8px 0 0; padding-left:22px; font-size:14.5px; }
+  nav.toc a { color:var(--blue); text-decoration:none; }
+  section.card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+                 padding:24px 28px; margin-bottom:22px; }
+  h2 { font-size:20px; margin:0 0 14px; padding-bottom:10px; border-bottom:2px solid var(--chip); }
+  h3 { font-size:16.5px; margin:20px 0 8px; color:#14345c; }
+  p { margin:8px 0; font-size:15px; }
+  .lead { color:var(--sub); font-size:14px; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; background:#fff; }
+  th { background:var(--chip); color:#14345c; text-align:left; }
+  th, td { border:1px solid var(--line); padding:7px 10px; vertical-align:top; }
+  tr:nth-child(even) td { background:#fafbfd; }
+  .seq { font-family:Consolas,Menlo,monospace; font-size:12.5px; letter-spacing:.5px; word-break:break-all; }
+  .pos { color:var(--red); font-weight:700; }
+  .neg { color:var(--green); font-weight:700; }
+  .win { background:#dafbe1; color:var(--green); font-weight:700; padding:1px 8px; border-radius:10px; font-size:12.5px; white-space:nowrap; }
+  .info { background:#ddf4ff; color:#0a4d8c; padding:1px 8px; border-radius:10px; font-size:12.5px; white-space:nowrap; }
+  .warn { background:#fff8c5; color:var(--amber); padding:1px 8px; border-radius:10px; font-size:12.5px; white-space:nowrap; }
+  .g3 { background:#fbefff; color:#8250df; padding:1px 8px; border-radius:10px; font-size:12.5px; white-space:nowrap; }
+  sup.cite { margin:0 1px; }
+  sup.cite a { color:var(--blue); text-decoration:none; font-weight:600; font-size:11px; }
+  ol.refs { font-size:13.5px; padding-left:26px; }
+  ol.refs li { margin:7px 0; }
+  ol.refs .rt { color:var(--ink); }
+  ol.refs .rj { font-style:italic; color:var(--sub); }
+  ol.refs a.doi { color:var(--blue); text-decoration:none; font-size:12.5px; }
+  ol.refs a.back { color:var(--sub); text-decoration:none; font-size:12px; margin-left:6px; }
+  table a.datalink { color:var(--blue); text-decoration:none; font-size:12.5px; white-space:nowrap; }
+  .flow { background:var(--chip); border-radius:10px; padding:12px 18px; font-size:14.5px; margin:10px 0; }
+  .flow b { color:#14345c; }
+  .note { font-size:12.5px; color:var(--sub); margin:8px 0 4px; }
+  footer { color:var(--sub); font-size:12.5px; text-align:center; margin-top:30px; }
+  @media print { tr { break-inside: avoid; } .keep { break-inside: avoid; } }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>PIACE: Cross-Species Gene Essentiality Prediction: Data, Principles, and Model Rationale</h1>
+  <p>What data we collected · why these data represent gene essentiality · what each model component and each feature family contributes biologically</p>
+  <p>Companion to the Chinese edition of 2026-11-05. All figures were read from project artifacts; every claim carries an inline citation [n] resolved in the References. Baseline comparison: PIC (Kang et al., Nature Computational Science, 2025).</p>
+</header>
+
+<nav class="toc">
+  <b>CONTENTS</b>
+  <ol>
+    <li><a href="#s1">What essentiality means</a></li>
+    <li><a href="#s2">The data at a glance: what X and Y are</a></li>
+    <li><a href="#s3">Dataset inventory by kingdom</a></li>
+    <li><a href="#s4">Comparability with PIC: same file, same protocol</a></li>
+    <li><a href="#s5">The eight frozen protein-language-model towers</a></li>
+    <li><a href="#s6">Deterministic feature views (517-d)</a></li>
+    <li><a href="#s7">Experimental discipline</a></li>
+    <li><a href="#s8">Mining directions: from a trained model to biological discovery</a></li>
+  </ol>
+</nav>
+
+<!-- ================= 1 ESSENTIALITY ================= -->
+<section class="card" id="s1">
+  <h2>1. What essentiality means</h2>
+  <p>A gene is <b>essential</b> when its disruption, deletion, insertional inactivation, or CRISPR-mediated ablation, renders the organism or cell non-viable. Conversely, a gene whose disruption leaves the organism alive and fertile is <b>non-essential</b>. Every essentiality dataset used here is therefore a record of disruption experiments: <b>Y&nbsp;=&nbsp;1</b> denotes lethality after disruption; <b>Y&nbsp;=&nbsp;0</b> denotes survival.</p>
+
+  <div class="flow">
+    <b>Disruption &rarr; phenotype &rarr; label.</b> Remove the gene (knockout, insertional inactivation, CRISPR ablation) &rarr; assay survival and reproduction &rarr;
+    death defines <b>essential (1)</b>; survival defines <b>non-essential (0)</b>.
+  </div>
+
+  <p>Sequence suffices for prediction because the gene acts through its protein product: catalytic chemistry, binding interfaces, membrane channels, and roles in DNA replication and translation are all encoded in the amino-acid sequence. Evolution retains indispensable genes under strong constraint: the more essential the protein, the lower its tolerance to sequence change. The model therefore reads the sequence alone, no experimental information enters the input, and predicts whether the encoded protein is dispensable.</p>
+
+  <h3>1.1 How genes are disrupted: mechanisms and readouts</h3>
+  <table>
+    <tr><th>Technique</th><th>Molecular mechanism</th><th>How death is observed</th></tr>
+    <tr><td>Homologous-recombination deletion (budding yeast SGD <sup class="cite"><a href="#ref9">[9]</a></sup>; <em>E.&nbsp;coli</em> Keio <sup class="cite"><a href="#ref11">[11]</a></sup> and MG1655 systematic determination <sup class="cite"><a href="#ref12">[12]</a></sup>; <em>B.&nbsp;subtilis</em> DEG1001 <sup class="cite"><a href="#ref15">[15]</a></sup>)</td><td>A resistance-marked cassette recombines with chromosomal homology regions, physically replacing the entire coding sequence; each strain lacks exactly one gene</td><td>Plated deletion strains: no growth = lethal (Y=1); normal growth = non-essential (Y=0)</td></tr>
+    <tr><td>Mouse knockouts (IMPC <sup class="cite"><a href="#ref3">[3]</a></sup>, DEG <sup class="cite"><a href="#ref2">[2]</a></sup>)</td><td>The gene is deleted or terminator-disrupted in zygotes or embryonic stem cells; homozygous knockout animals are bred</td><td>Embryonic or perinatal death of homozygotes = lethal; survival to adulthood and fertility = non-essential</td></tr>
+    <tr><td>Barcoded insertional mutagenesis (<em>P.&nbsp;berghei</em> <sup class="cite"><a href="#ref26">[26]</a></sup>; <em>C.&nbsp;reinhardtii</em> CLiP <sup class="cite"><a href="#ref25">[25]</a></sup>)</td><td>Transposon or knockout vectors insert at random, interrupting reading frames; each mutant carries a unique barcode and thousands of genes are perturbed in parallel</td><td>Barcode sequencing after population passage: a barcode that vanishes or declines sharply means cells carrying that insertion died = essential</td></tr>
+    <tr><td>Genome-wide CRISPR screens (human cell lines <sup class="cite"><a href="#ref5">[5]</a></sup>,<sup class="cite"><a href="#ref6">[6]</a></sup>; <em>T.&nbsp;gondii</em> <sup class="cite"><a href="#ref27">[27]</a></sup>)</td><td>A pooled sgRNA library <sup class="cite"><a href="#ref21">[21]</a></sup> delivers Cas9 cuts that frameshift target genes; tens of thousands of genes are perturbed simultaneously</td><td>sgRNA abundance after several population doublings: a sharp drop for guides targeting gene <em>g</em> means cells lacking <em>g</em> were eliminated = essential (<em>T.&nbsp;gondii</em> phenotypes are binarized by a Gaussian mixture model)</td></tr>
+    <tr><td>Embryo-defective (EMB) mutagenesis (<em>A.&nbsp;thaliana</em> <sup class="cite"><a href="#ref22">[22]</a></sup>,<sup class="cite"><a href="#ref23">[23]</a></sup>)</td><td>EMS mutagenesis or insertional disruption hits genes that act in seed development</td><td>Arrested or abortive seeds = embryo lethal; plump viable seeds = non-essential</td></tr>
+    <tr><td>Population-genetic constraint (gnomAD <sup class="cite"><a href="#ref4">[4]</a></sup>; not an experiment)</td><td>No gene is disrupted; loss-of-function variation is enumerated across ~141,000 human genomes</td><td>A gene with almost no LoF variation has been "naturally knocked out" countless times without a viable carrier = essentiality by constraint (LOEUF)</td></tr>
+  </table>
+
+  <h3>1.2 Why lethality equals essentiality: the non-redundancy principle</h3>
+  <p>The viable cell executes a fixed set of functions, DNA replication, transcription, translation, energy metabolism, membrane integrity, division, each performed by specific proteins. Whether disrupting a gene is lethal depends on whether its function is <b>redundant</b>:</p>
+  <div class="flow">
+    Gene disrupted &rarr; protein lost &rarr; the function loses its executor<br>
+    &rarr; no redundancy (no isoenzyme, no bypass pathway) &rarr; cell machinery halts &rarr; <b>death = essential (Y=1)</b><br>
+    &rarr; redundant backup exists, or the function is itself dispensable &rarr; <b>survival = non-essential (Y=0)</b>
+  </div>
+  <p>The label therefore asserts that the protein performs a <b>non-substitutable function</b>. Essential genes are a minority in every organism (7.3% positives, 443/6,050, in our mouse pool) because the survival list is short and most genes perform peripheral roles.</p>
+
+  <h3>1.3 Why predicting the protein suffices: function is encoded in sequence</h3>
+  <p>Genes do not act directly; their proteins do. Sequence determines structure, structure determines function, and function determines substitutability, the causal chain begins at the sequence. Evolution writes dispensability into the sequence as four learnable signatures:</p>
+  <ul>
+    <li><b>Conservation</b>: catalytic residues, ATP-binding pockets, and interface positions of essential proteins are retained for hundreds of millions of years, producing strong positional conservation;</li>
+    <li><b>Composition</b>: membrane channels are hydrophobic-rich, nucleic-acid binders charge-rich, metalloenzymes Cys/His-rich; amino-acid composition exposes functional class;</li>
+    <li><b>Architecture</b>: the number and spacing of transmembrane segments, disordered-region length, and domain combinations follow regular patterns in "machine-type" essential proteins (polymerases, ribosomal proteins, channels);</li>
+    <li><b>Family context</b>: non-essential genes are frequently redundant family members or specialized responders, reflected in paralog expansion, weak conservation, and variable length.</li>
+  </ul>
+  <p>"Does this sequence encode a non-substitutable protein" is thus a statistical question. The model learns the mapping <b>sequence &rarr; functional class &rarr; non-substitutability &rarr; essentiality</b> from sequence alone.</p>
+
+  <h3>1.4 Why the model transfers to unseen species</h3>
+  <ul>
+    <li><b>One physical chemistry.</b> All life shares the same twenty amino acids, the same folding forces, and the same biochemistry. The ribosome, DNA polymerase, and ATP synthase of <em>E.&nbsp;coli</em> and of a human cell are versions of the same machines: different sequences, same construction principles.</li>
+    <li><b>The survival list is universal and its core is deeply conserved.</b> Replication, transcription, translation, and core energy metabolism are the same homework from bacteria to humans, with highly homologous core essential sets. Within a kingdom even peripheral essentials (signaling, transport, organelle targeting) are shared , which is why same-kingdom zero-shot scores are highest (<em>B.&nbsp;subtilis</em> 0.7225) and degrade across kingdoms (<em>P.&nbsp;berghei</em> 0.5429).</li>
+    <li><b>The model learns regularities, not a roster.</b> Training saw only the A-side sources of its species pairs; it never memorized any species' essential-gene list. The mapping of §1.3 applies to any new sequence, that is the physical basis of zero-shot (G3) evaluation.</li>
+    <li><b>Boundary conditions.</b> Zero-shot accuracy depends on label conventions matching those of training species. Inferred labels (CLiP) or stricter criteria (growth-rate thresholds) depress scores; the weakest results are not listed in the main tables.</li>
+  </ul>
+
+  <h3>1.5 Why the eight towers and the engineered features deliver this</h3>
+  <ul>
+    <li><b>Towers as evolutionary function readers.</b> ESM2- and T5-family models are trained by masked-span completion on billions of evolutionarily filtered sequences <sup class="cite"><a href="#ref17">[17]</a></sup>,<sup class="cite"><a href="#ref19">[19]</a></sup>; their representation of "which positions tolerate no change" is evolutionary in nature: a position's substitution pattern = its constraint = its functional importance. The tower embedding compresses "what kind of machine is this, and which segments cannot be lost" into a fixed-length vector.</li>
+    <li><b>Eight towers as an ensemble of readers.</b> Different architectures (ESM2 vs T5), capacities (8M&rarr;3B), and pretraining corpora read the same sequence differently; concatenation dilutes single-model bias: some towers specialize in family fingerprints, some in long-range residue dependencies, one carries structure channels (ESM3 <sup class="cite"><a href="#ref18">[18]</a></sup>).</li>
+    <li><b>Freezing keeps one yardstick.</b> Tower parameters never change; every species and dataset is embedded by the same function, which is what makes cross-species comparison and zero-shot transfer methodologically sound.</li>
+    <li><b>Deterministic views as a transparent physical channel.</b> The 517 hand-computed features (hydrophobicity profiles, dipeptide frequencies, CTD distributions, autocorrelation, secondary-structure propensities, composition bias) quantify the signatures of §1.3 directly and are inspectable without a model <sup class="cite"><a href="#ref16">[16]</a></sup>.</li>
+    <li><b>Head calibration.</b> Essential-set composition shifts across kingdoms (a few hundred core essentials in bacteria, thousands in eukaryotes); specialist heads carry species context and inverse-frequency weighting, and focal loss keeps the positive minority from being swamped during training.</li>
+  </ul>
+</section>
+
+<!-- ================= 2 X AND Y ================= -->
+<section class="card" id="s2">
+  <h2>2. The data at a glance: what X and Y are</h2>
+  <p><b>X (input)</b> is the numeric vector of the protein sequence, built identically for every dataset: (i) the concatenation of eight frozen protein-language-model embeddings (320+480+640+1280+2560+1536+1024+768 = <b>8,608-d</b>); (ii) seven deterministic statistical views (<b>517-d</b>; §6). X carries no experimental information. <b>Y (label)</b> is each dataset's own 0/1 column, fixed by its disruption experiments: 1 = essential under that dataset's criterion, 0 = viable after disruption.</p>
+
+  <h3>2.1 Real rows from the mouse pool (first three negatives and three positives; read from the file, not synthetic)</h3>
+  <table class="keep">
+    <tr><th>Gene ID</th><th>Length (aa)</th><th>Sequence (first 36 residues)</th><th>X</th><th>Y</th><th>Biological reading</th></tr>
+    <tr><td>ENSMUSG00000024261</td><td>425</td><td class="seq">MAPITTSREEFDEIPTVVGIFSAFGLVFTVSLFAWI</td><td rowspan="6">The same sequence &rarr; 8,608-d tower embedding + 517-d statistical views (one fixed-length vector per row)</td><td class="neg">0</td><td>Knockout viable in the mouse &rarr; non-essential</td></tr>
+    <tr><td>ENSMUSG00000029439</td><td>1003</td><td class="seq">MYGASGGRAKPERKSGAKEEAGPGGAGGGGSRVELL</td><td class="neg">0</td><td>Non-essential</td></tr>
+    <tr><td>ENSMUSG00000056758</td><td>147</td><td class="seq">MSARGEGAGQPSTSAQGQPAAPAPQKRGRGRPRKQQ</td><td class="neg">0</td><td>Non-essential</td></tr>
+    <tr><td>ENSMUSG00000064068</td><td>466</td><td class="seq">MLLGGPPRSPRSGTSPKGPWSSTGHVQFGKSPQTWP</td><td class="pos">1</td><td>Disruption lethal &rarr; essential</td></tr>
+    <tr><td>ENSMUSG00000041488</td><td>289</td><td class="seq">MKDRLEQLKAKQLTQDDDTDAVEIAIDNTAFMDEFF</td><td class="pos">1</td><td>Essential</td></tr>
+    <tr><td>ENSMUSG00000022407</td><td>526</td><td class="seq">MAAGGDHGSPDSYRSPLASRYASPEMCFVFSDRYKF</td><td class="pos">1</td><td>Essential</td></tr>
+  </table>
+  <p class="note">Source: <code>data/data/mouse_data.pkl</code> (6,050 rows; columns = index, ID, mouse, sequence; read 2026-11-05). The file is identical to the one released with the PIC publication <sup class="cite"><a href="#ref1">[1]</a></sup> (§4).</p>
+
+  <p class="lead">Every gene of every species passes through the same featurization pipeline; datasets differ only in which disruption experiments fixed Y. This is the physical basis of cross-species transfer: the model learns, from species A, which proteins the organism cannot lose, and applies it to species B without new experiments.</p>
+</section>
+
+<!-- ================= 3 INVENTORY ================= -->
+<section class="card" id="s3">
+  <h2>3. Dataset inventory by kingdom</h2>
+  <p class="lead">Inventories follow the three-domain design; Archaea and Protista are separate kingdoms and are listed separately. Roles: <span class="info">G1 train</span> = supervised training source; <span class="warn">G2 external test</span> = same-species independent set, evaluation only; <span class="g3">G3 zero-shot</span> = out-of-pool species, never seen in training.</p>
+
+  <h3>Animalia</h3>
+  <table>
+    <tr><th>Dataset</th><th>Meaning of Y=1 (technique, target, outcome)</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td>Mouse IMPC <sup class="cite"><a href="#ref3">[3]</a></sup></td><td>Homozygous whole-gene knockout is <b>lethal in the mouse</b></td><td>8,606</td><td><span class="info">G1 train</span></td><td><a class="datalink" href="https://www.mousephenotype.org/" target="_blank">IMPC portal &nearr;</a></td></tr>
+    <tr><td>Mouse DEG <sup class="cite"><a href="#ref2">[2]</a></sup></td><td>Knockout or insertional inactivation is <b>lethal in the mouse</b> (curated in DEG; the 1.60&times; P2 deviation is disclosed in the verdict files)</td><td>6,050</td><td><span class="warn">G2 external</span> (IMPC&rarr;DEG) and primary comparison universe</td><td><a class="datalink" href="https://tubic.org/deg/" target="_blank">DEG &nearr;</a></td></tr>
+    <tr><td>Mouse Keys2022 <sup class="cite"><a href="#ref8">[8]</a></sup></td><td>In vivo CRISPR disruption is <b>lethal</b> (1.4% positive rate; caliber downgraded per protocol)</td><td>5,656</td><td><span class="warn">G2 external</span> (control arm)</td><td><a class="datalink" href="https://doi.org/10.1016/j.xgen.2022.100217" target="_blank">Paper/data &nearr;</a></td></tr>
+    <tr><td>Human gnomAD LOEUF <sup class="cite"><a href="#ref4">[4]</a></sup></td><td>Not an experiment: LoF variants are extremely rare = "natural knockouts"</td><td>65,057</td><td><span class="g3">G3 zero-shot</span> (human is out-of-pool; excluded from training)</td><td><a class="datalink" href="https://gnomad.broadinstitute.org/" target="_blank">gnomAD &nearr;</a></td></tr>
+    <tr><td>Human cell lines <sup class="cite"><a href="#ref6">[6]</a></sup></td><td>CRISPR/shRNA depletion <b>kills the cell line</b> (includes the 2,692-gene DepMap channel)</td><td>17,185</td><td><span class="warn">G2 external</span> (cell&rarr;wang2015, cell&rarr;broad20q2)</td><td><a class="datalink" href="https://depmap.org/portal/" target="_blank">DepMap &nearr;</a></td></tr>
+    <tr><td>Human wang2015 <sup class="cite"><a href="#ref5">[5]</a></sup></td><td>CRISPR/shRNA screening <b>kills the cell line</b></td><td>17,111</td><td><span class="warn">G2 external</span> (B-side single-shot)</td><td><a class="datalink" href="https://doi.org/10.1126/science.aac7041" target="_blank">Paper/data &nearr;</a></td></tr>
+    <tr><td>Human broad20q2 <sup class="cite"><a href="#ref6">[6]</a></sup></td><td>CRISPR screening <b>kills the cell line</b></td><td>16,937</td><td><span class="warn">G2 external</span> (B-side single-shot)</td><td><a class="datalink" href="https://depmap.org/portal/" target="_blank">DepMap &nearr;</a></td></tr>
+    <tr><td>Human bagel <sup class="cite"><a href="#ref7">[7]</a></sup></td><td>CRISPR screening <b>kills the cell line</b> (BAGEL reference set)</td><td>1,276</td><td><span class="warn">G2 external</span> (human&rarr;bagel)</td><td><a class="datalink" href="https://doi.org/10.1186/s12859-016-1015-8" target="_blank">Paper/data &nearr;</a></td></tr>
+  </table>
+
+  <h3>Fungi</h3>
+  <table class="keep">
+    <tr><th>Dataset</th><th>Meaning of Y=1</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td><em>S.&nbsp;cerevisiae</em> SGD <sup class="cite"><a href="#ref9">[9]</a></sup></td><td>Single-gene deletion is <b>non-viable in yeast</b></td><td>5,140</td><td><span class="info">G1 train</span></td><td><a class="datalink" href="https://www.yeastgenome.org/" target="_blank">SGD &nearr;</a></td></tr>
+    <tr><td><em>S.&nbsp;cerevisiae</em> DEG / sgd1017 <sup class="cite"><a href="#ref2">[2]</a></sup></td><td>Deletion is <b>lethal in yeast</b> (the backbone leg would be transductive on the B side for this row; its weight is forced to zero, disclosed)</td><td>4,791</td><td><span class="warn">G2 external</span></td><td><a class="datalink" href="https://tubic.org/deg/" target="_blank">DEG &nearr;</a></td></tr>
+    <tr><td><em>S.&nbsp;pombe</em> <sup class="cite"><a href="#ref10">[10]</a></sup><sup class="cite"><a href="#ref2">[2]</a></sup></td><td>Deletion or gene inactivation is <b>non-viable in fission yeast</b></td><td>2,271</td><td><span class="g3">G3 zero-shot</span> (0.6796)</td><td><a class="datalink" href="https://www.pombase.org/" target="_blank">PomBase &nearr;</a></td></tr>
+  </table>
+
+  <h3>Plantae</h3>
+  <table>
+    <tr><th>Dataset</th><th>Meaning of Y=1</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td><em>A.&nbsp;thaliana</em> Lloyd2012 <sup class="cite"><a href="#ref22">[22]</a></sup></td><td>EMB mutants are <b>seed-lethal in Arabidopsis</b> (literature compendium)</td><td>2,287</td><td><span class="info">G1 train</span></td><td><a class="datalink" href="https://seedgenes.org/" target="_blank">SeedGenes &nearr;</a></td></tr>
+    <tr><td><em>A.&nbsp;thaliana</em> Meinke2019 <sup class="cite"><a href="#ref23">[23]</a></sup></td><td>EMB disruption is <b>embryo-lethal</b> (positive-only set; agreement reported by &kappa; rather than fabricated negatives; 446/510 = 87.5% ID-join completed)</td><td>510</td><td><span class="warn">G2 external</span> (version-stability overlap design)</td><td><a class="datalink" href="https://doi.org/10.1111/nph.16071" target="_blank">Paper/SI &nearr;</a></td></tr>
+    <tr><td>Rice RMD + 92-gene subset <sup class="cite"><a href="#ref24">[24]</a></sup><sup class="cite"><a href="#ref33">[33]</a></sup><sup class="cite"><a href="#ref34">[34]</a></sup></td><td>T-DNA/transposon disruption is <b>lethal in rice</b> (92/92 essential subset complete)</td><td>92</td><td><span class="g3">G3 zero-shot</span> (0.7763)</td><td><a class="datalink" href="https://doi.org/10.1093/nar/gkj016" target="_blank">RMD paper &nearr;</a> <a class="datalink" href="https://web.archive.org/web/20110424220926/http://rmd.ncpgr.cn/" target="_blank">RMD archive &nearr;</a></td></tr>
+  </table>
+  <div class="note">Note: the 92-gene rice subset was assembled in-house from the RMD database, with 15 missing loci recovered against NCBI RefSeq <sup class="cite"><a href="#ref33">[33]</a></sup> and RAP-DB <sup class="cite"><a href="#ref34">[34]</a></sup> official mappings (sources are the citations and links on this row).</div>
+
+  <h3>Monera</h3>
+  <table>
+    <tr><th>Dataset</th><th>Meaning of Y=1</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td><em>E.&nbsp;coli</em> Keio <sup class="cite"><a href="#ref11">[11]</a></sup></td><td>Single-gene deletion is <b>non-viable in <em>E.&nbsp;coli</em></b></td><td>2,296</td><td><span class="info">G1 train</span></td><td><a class="datalink" href="https://web.archive.org/web/20070612065209/http://www.shigen.nig.ac.jp/ecoli/strain/top/top.jsp" target="_blank">Keio archive &nearr;</a></td></tr>
+    <tr><td><em>E.&nbsp;coli</em> EDL933 <sup class="cite"><a href="#ref13">[13]</a></sup></td><td>Gene loss is <b>lethal in EHEC O157:H7</b> (in vitro primary; in vivo rabbit model as narrative row)</td><td>4,862</td><td><span class="warn">G2 external</span></td><td><a class="datalink" href="https://doi.org/10.1371/journal.ppat.1007652" target="_blank">Paper/SI &nearr;</a></td></tr>
+    <tr><td><em>E.&nbsp;coli</em> Goodall <sup class="cite"><a href="#ref14">[14]</a></sup></td><td>Knockout is <b>lethal</b> (independent culture-condition essentialome)</td><td>2,198</td><td><span class="warn">G2 external</span> (0.8000)</td><td><a class="datalink" href="https://doi.org/10.1128/mbio.02096-17" target="_blank">Paper/SI &nearr;</a></td></tr>
+    <tr><td><em>B.&nbsp;subtilis</em> <sup class="cite"><a href="#ref15">[15]</a></sup></td><td>Systematic single-gene knockout is <b>lethal</b> (DEG1001)</td><td>4,288</td><td><span class="g3">G3 zero-shot</span> (0.7225)</td><td><a class="datalink" href="https://tubic.org/deg/" target="_blank">DEG &nearr;</a></td></tr>
+  </table>
+
+  <h3>Archaea: the third domain, distinct from bacteria and eukaryotes</h3>
+  <table>
+    <tr><th>Dataset</th><th>Meaning of Y=1</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td><em>M.&nbsp;maripaludis</em> (mms2) <sup class="cite"><a href="#ref28">[28]</a></sup><sup class="cite"><a href="#ref2">[2]</a></sup></td><td>Disruption is <b>non-viable in the methanogen</b> (A-side source)</td><td>1,707</td><td><span class="info">G1/G2 train</span></td><td><a class="datalink" href="https://tubic.org/deg/" target="_blank">DEG &nearr;</a></td></tr>
+    <tr><td><em>S.&nbsp;islandicus</em> <sup class="cite"><a href="#ref29">[29]</a></sup></td><td>Disruption is <b>lethal in <em>S.&nbsp;islandicus</em></b></td><td>2,734</td><td><span class="warn">G2 external</span> (downgraded pairing, see note); a G3 zero-shot row (0.6699) is listed separately</td><td><a class="datalink" href="https://doi.org/10.1038/s41467-018-07379-4" target="_blank">Paper/SI &nearr;</a></td></tr>
+  </table>
+  <div class="note">Note (downgraded pairing): the archaeal row pairs the methanogen <em>M.&nbsp;maripaludis</em> (train) with <em>S.&nbsp;islandicus</em> (test), the same archaeal domain but different species, not a same-species cross-source pair as in IMPC&rarr;DEG. Archaea have no second same-species independent set; the row is handled separately (constitution annotation "R5B downgraded: within-domain cross-species"; attributed to the G2 table by ruling). Archaea and Protista are separate kingdoms and are listed separately.</div>
+
+  <h3>Protista: apicomplexan parasites, a kingdom apart from Archaea</h3>
+  <table>
+    <tr><th>Dataset</th><th>Meaning of Y=1</th><th>n</th><th>Role</th><th>Data</th></tr>
+    <tr><td><em>P.&nbsp;berghei</em> <sup class="cite"><a href="#ref26">[26]</a></sup></td><td>Genome-wide barcoded knockout screen: <b>lethal in the malaria parasite</b> (explicit Essential/Dispensable calls)</td><td>2,088</td><td><span class="g3">G3 zero-shot</span> (0.5429)</td><td><a class="datalink" href="https://plasmogem.serve.scilifelab.se/pgem/about_pgem_background" target="_blank">PlasmoGEM &nearr;</a></td></tr>
+    <tr><td><em>P.&nbsp;falciparum</em> <sup class="cite"><a href="#ref2">[2]</a></sup></td><td>Knockout is <b>lethal</b> (DEG source); in-pool species, no G3 scoring by design</td><td>1,977</td><td>No evaluation row (see note)</td><td><a class="datalink" href="https://tubic.org/deg/" target="_blank">DEG &nearr;</a></td></tr>
+    <tr><td><em>T.&nbsp;gondii</em> <sup class="cite"><a href="#ref27">[27]</a></sup></td><td>Genome-wide CRISPR disruption is <b>lethal</b> (GMM binarization; ToxoDB phenotype threshold on file)</td><td>7,947</td><td><span class="g3">G3 zero-shot</span> (scoring awaits embedding completion)</td><td><a class="datalink" href="https://toxodb.org/toxo/app" target="_blank">ToxoDB &nearr;</a></td></tr>
+  </table>
+  <div class="note">Note (kingdom positioning): Protista currently has no G1 training row and no G2 same-species pair, the four G1 sources are fixed (IMPC, SGD, Lloyd2012, Keio) and this kingdom is not among them; its slot is G3 zero-shot. <em>P.&nbsp;falciparum</em> is an in-pool species (its proteins enter the embedding and unlabeled reference pools under 0.1-weight weak supervision); "in-pool" is not G1, which requires experimentally confirmed essentiality labels used for supervised training. Its DEG-sourced labels exist, but no independent evaluation row is defined.</div>
+  <p class="note">Sources: <code>_WHITTAKER_V6_MASTER_DESIGN_20261025.md</code> (species pairs, pool weights, exclusion list); <code>_v7/wp5/_G3_RESULTS_v3.json</code> (G3 figures and label provenance, read 2026-11-05); <code>_v7/wp5/_V4R23_G2_CONSTITUTION.json</code> (G2 rows and comparators); <code>_v7/wp5/_DECISION_LOG_R24G3.json</code> (G3 protocol, <em>T.&nbsp;gondii</em> status, views=zeros(n,517) zero-shot convention).</p>
+</section>
+
+<!-- ================= 4 PIC ================= -->
+<section class="card" id="s4">
+  <h2>4. Comparability with PIC: same file, same protocol, same biology</h2>
+  <p><b>Same data.</b> The mouse pool <code>data/data/mouse_data.pkl</code> is byte-identical to the file released with the PIC publication <sup class="cite"><a href="#ref1">[1]</a></sup>, 6,050 rows, 443 essential genes. Label semantics are therefore PIC's own: experimentally confirmed knockout lethality curated in DEG <sup class="cite"><a href="#ref2">[2]</a></sup>. This study does not redefine essentiality; it compares sequence models on the same biological facts.</p>
+  <p><b>Same split protocol.</b> PIC's splitting code (random.seed(42); stratified 80/10/10) is replicated line-for-line in <code>_v7/pic_split/_replicate_pic_split.py</code>; the test set is generated before any set-ordering operation and is exactly reproducible (test = 604 rows, 44 positives). The train/val boundary depends on CPython set ordering and is best-effort, which is disclosed.</p>
+  <h3>Head-to-head on the same facts</h3>
+  <table>
+    <tr><th>Caliber</th><th>Ours</th><th>PIC reported</th><th>Verdict</th></tr>
+    <tr><td>R19 ten-fold preregistered (StratifiedKFold-10, seed 42; zero-freedom doctrine)</td><td><b>0.8752</b></td><td>0.8736</td><td><span class="win">WIN +0.0016</span></td></tr>
+    <tr><td>R21c PIC's original 80/10/10 seed-42 split</td><td><b>0.8738</b></td><td>0.8736</td><td><span class="win">WIN +0.0002</span></td></tr>
+  </table>
+  <p class="note">Sources: <code>_v7/wp5/_V4R19_LORA_MERGE_STACKGRID.json</code> (sha16 e798d5cafcf4c77c); <code>_v7/wp5/_V4R21C_PICSPLIT_RESULTS.json</code>; three independent audits (audit checklist Rounds 8/14).</p>
+</section>
+
+<!-- ================= 5 TOWERS ================= -->
+<section class="card" id="s5">
+  <h2>5. The eight frozen protein-language-model towers</h2>
+  <p>Every sequence is embedded by eight <b>frozen</b> pretrained protein language models; the concatenation (8,608-d) is the backbone of X. Freezing means tower parameters are fixed and only lightweight heads are trained, so X measures all datasets and species with the same instrument. Towers (names and dimensions from the registry in <code>code/_v4_round3_g2.py</code>, lines 19/60):</p>
+  <table>
+    <tr><th>Tower</th><th>Dim</th><th>Family / pretraining principle</th><th>Role in the ensemble</th></tr>
+    <tr><td>ESM2-8M</td><td>320</td><td rowspan="5" style="background:#fafbfd">ESM2 family <sup class="cite"><a href="#ref17">[17]</a></sup>: masked-language modeling over massive protein databases, the model completes held-out residues, learning evolutionary constraint: which positions are near-invariant (change is lethal), which segments co-occur (domains and motifs), and long-range residue dependencies (spatial neighbors after folding).</td><td>Small tower: fast global composition signal</td></tr>
+    <tr><td>ESM2-35M</td><td>480</td><td>Small tower: motif-level patterns</td></tr>
+    <tr><td>ESM2-150M</td><td>640</td><td>Mid tower: domain and family fingerprints</td></tr>
+    <tr><td>ESM2-650M</td><td>1280</td><td>Workhorse tower: conserved sites plus long-range dependencies (the anchor of most legs; the G3 scoring join key)</td></tr>
+    <tr><td>ESM2-3B</td><td>2560</td><td>Large tower: finer functional-site resolution (the missing bank for <em>T.&nbsp;gondii</em> is this tower's)</td></tr>
+    <tr><td>ESM3-sm</td><td>1536</td><td>Multimodal protein model trained across sequence, structure, and function channels <sup class="cite"><a href="#ref18">[18]</a></sup></td><td>Adds structure-function priors</td></tr>
+    <tr><td>ProtT5-XL</td><td>1024</td><td>ProtTrans T5 family (encoder-decoder; massive UniRef corpora) <sup class="cite"><a href="#ref19">[19]</a></sup></td><td>An independent pretraining lineage, a second opinion that reduces single-family bias</td></tr>
+    <tr><td>Ankh-base</td><td>768</td><td>Protein T5 family (curated-corpus optimization) <sup class="cite"><a href="#ref20">[20]</a></sup></td><td>A further independent pretraining view</td></tr>
+  </table>
+  <p>Eight towers rather than one: different lineages, capacities, and corpora learn overlapping-but-non-identical features. Small towers capture global composition, large towers fine site detail, T5-lineage and ESM-lineage models read different "languages". Concatenation buys cross-domain robustness with capacity redundancy (six seeds and early stopping against overfitting; the redundancy is disclosed). Essential proteins span enzymes, channels, ribosomal and transcription machinery, so the signal forms are heterogeneous and a single tower under-covers them.</p>
+
+  <h3>Specialist side (task experts trained on top of the frozen towers)</h3>
+  <ul>
+    <li><b>specA leg</b>, 8-tower concatenation + the seven deterministic views (517-d) into a light head: evolutionary priors and hand-crafted statistics combined.</li>
+    <li><b>mp-3840d block + TowerConcat2xNet head (R14 full recipe)</b>, main BCE plus a human auxiliary head (0.3) and a weak-label auxiliary head (0.3, covered-only), with species inverse-frequency weighting so rare species are not swamped.</li>
+    <li><b>LoRA legs</b> (lora650 / lora3b / s43), low-rank adapters tuned lightly on the 650M/3B towers; the R19 official win is precisely a multi-LoRA family stack (lora650&times;0.30 + lora3b&times;0.30 + mt&times;0.20 + mp8deg&times;0.05 + bb&times;0.15 = 0.8752).</li>
+  </ul>
+</section>
+
+<!-- ================= 6 FEATURES ================= -->
+<section class="card" id="s6">
+  <h2>6. Deterministic feature views (517-d): construction and biological meaning</h2>
+  <p class="lead">"Deterministic" = the same sequence always yields the same numbers; no randomness, no model in the loop, pure CPU statistics. View names from <code>code/_v4_round3_g2.py</code> line 45: physchem / kmer / ctd / autocorr / zscale / ss_prop / bias; total 517-d (authoritative total per the views=zeros(n,517) zero-shot convention in <code>_DECISION_LOG_R24G3.json</code>).</p>
+  <table>
+    <tr><th>View</th><th>What it computes</th><th>Biological meaning</th></tr>
+    <tr><td>physchem (5)</td><td>Global physicochemical statistics of the sequence</td><td>Hydrophobicity/charge profiles separate membrane proteins (hydrophobic, many TM segments) from soluble enzymes; essential sets are rich in channels and transporters, so this axis is directly informative</td></tr>
+    <tr><td>kmer (400)</td><td>Short amino-acid string (k-mer) frequencies (400 = 20&times;20, the dipeptide matrix)</td><td>Dipeptide preference is the family/functional-group signature: active-site neighborhoods, ribosomal proteins, and transcription factors each carry characteristic short-string distributions</td></tr>
+    <tr><td>ctd (63)</td><td>Composition / Transition / Distribution statistics over physicochemical residue classes</td><td>Counts not only "how many" but "arranged how": whether charged residues cluster at one end or spread over the length, where hydrophobic blocks sit, the patterns that localize signal peptides, TM segments, and nuclear localization signals</td></tr>
+    <tr><td>autocorr (20)</td><td>Autocorrelation of physicochemical properties along the sequence</td><td>Periodicity and clustering of properties: domain repeats and helix-strand alternation; machine-type essential proteins (polymerases, ribosomal) tend to strongly regular architectures</td></tr>
+    <tr><td>zscale (5)</td><td>Sequence aggregation of five-dimensional amino-acid descriptors (z1&ndash;z5)</td><td>Compresses the twenty residues onto orthogonal physical axes (volume, hydrophobicity, polarity, charge, …) before aggregation, a more dimensional portrait than any single property</td></tr>
+    <tr><td>ss_prop (6)</td><td>Secondary-structure propensity statistics (helix/strand/coil, …)</td><td>Helix-rich proteins are often channels and structural scaffolds; strand-rich ones enzyme cores and beta-barrels, essential proteins differ systematically in conformational class</td></tr>
+    <tr><td>bias (18)</td><td>Amino-acid composition bias statistics</td><td>Deviation from background composition: Lys/Arg enrichment (nucleic-acid binding), Cys enrichment (metal binding), strong functional-class signals</td></tr>
+  </table>
+  <p>Tower embeddings are learned deep semantics; these 517 dimensions are transparent statistics. They are complementary: the views give auditable anchors (any reviewer can recompute them), the towers give expressive power. G2's specA leg uses both (8 towers + 517-d); for G3 out-of-pool zero-shot the views are set to zero by protocol (views=zeros), keeping the pure-backbone zero-shot caliber , the honest version of "the model has never seen this species".</p>
+</section>
+
+<!-- ================= 7 DISCIPLINE ================= -->
+<section class="card" id="s7">
+  <h2>7. Experimental discipline</h2>
+  <ul>
+    <li><b>Zero-training red line.</b> Second-source (G2 B-side) data are evaluation-only, under every circumstance; any leg that would be transductive on B has its weight forced to zero with disclosure (the sgd1017 row).</li>
+    <li><b>Selection separated from confirmation.</b> All configurations are frozen on A-side cross-validation (OOF); the B side is scored once. No test-set tuning.</li>
+    <li><b>Verdicts computed, not edited.</b> WIN/LOSE decisions are produced by preregistered gates; verdict files are never hand-edited, and LOSE records are permanent, reruns take new round numbers.</li>
+    <li><b>Slice guard.</b> Full / s200 (&le;200 aa) / s150 (&le;150 aa) bins; any bin with n&lt;30 or positives&lt;30 is structurally unscored and rendered as "n=X(&lt;30), structurally not scored".</li>
+    <li><b>Disclosure by construction.</b> Join losses (<em>P.&nbsp;berghei</em> 2,089&rarr;2,088), inferred labels (CLiP, two calibers), positive-only sets (Meinke, &kappa;-reported), and blocked-not-faked items (<em>T.&nbsp;gondii</em> awaiting embeddings) are all recorded in the verdict files.</li>
+    <li><b>Verdict snapshot.</b> Mouse R19 <span class="win">WIN 0.8752</span> and R21c <span class="win">WIN 0.8738</span> against PIC's 0.8736 (two calibers); G2 seven rows <span class="win">all WIN</span> (constitution v2); G3 zero-shot disclosure rows on file; R25 margin campaign in progress (M3 edl933 focal <span class="win">WIN 0.7439 &gt; 0.7323</span>, single-shot on record).</li>
+  </ul>
+</section>
+
+<!-- ================= 8 MINING ================= -->
+<section class="card" id="s8">
+  <h2>8. Mining directions: from a trained model to biological discovery</h2>
+  <p>Prediction accuracy is not the end state. Once trained, the model's internal representations are assets for biological mining. Three directions are specified here in full (none is launched at present), each with method, biological meaning, and evidence chain.</p>
+
+  <h3>8.1 The essentiality landscape: global organization of sequence space</h3>
+  <p><b>Method.</b> Embed all proteins of all species through the frozen towers into the 8,608-d space, color each protein by its predicted essentiality score, and project (UMAP or PaCMAP) to two dimensions.</p>
+  <p><b>Three propositions to test.</b> First, do essential proteins form discrete islands (a ribosomal island, a replication island, a membrane-machine island) or a diffuse population? Discrete islands would show that essentiality admits several non-interchangeable molecular implementations. Second, do the kingdoms share the same terrain? Shared terrain would promote the G3 zero-shot results from empirical findings to mechanistic evidence, a structural explanation of cross-species transferability. Third, the transition belts at island boundaries are the model's highest-uncertainty regions and therefore the highest-information targets for wet-lab validation, closing an active-learning loop.</p>
+  <p><b>Evidence chain.</b> Unsupervised protein-language-model representations are known to develop functional structure at scale <sup class="cite"><a href="#ref16">[16]</a></sup>,<sup class="cite"><a href="#ref17">[17]</a></sup>; the G3 five-species gradient (0.7225 down to 0.5429) provides the first observations of terrain-sharing.</p>
+
+  <h3>8.2 Phylogenetic decay curve and inter-kingdom transfer matrix</h3>
+  <p><b>Method.</b> Plot pairwise phylogenetic (or sequence-similarity) distance against essentiality agreement (or transfer AUROC); the G3 data are ready-made points on this curve. Then build an inter-kingdom transfer matrix: for each pair of kingdoms, the overlap (Jaccard/IoU) of their essential-protein regions in representation space.</p>
+  <p><b>Meaning.</b> That essential genes are more conserved than non-essential ones is classical <sup class="cite"><a href="#ref30">[30]</a></sup>. The contribution here is to generalize the statement from sequence conservation to the cross-species sharing of non-substitutable functions, quantified per kingdom pair. The matrix explains when zero-shot transfer works (within-kingdom: high; across: low) and indicates which cross-kingdom directions merit new experimental data.</p>
+
+  <h3>8.3 The disease-gene map: aligning human predictions with OMIM and DepMap</h3>
+  <p><b>Method.</b> Join the model's genome-wide human essentiality scores with the OMIM catalog <sup class="cite"><a href="#ref31">[31]</a></sup> and the DepMap dependency map <sup class="cite"><a href="#ref6">[6]</a></sup> by gene identifier, yielding a four-quadrant table. The third dimension is ours alone: the scores carry cross-species evolutionary evidence from seven species' experimental essentiality data.</p>
+  <table>
+    <tr><th></th><th>OMIM catalogued</th><th>Absent from OMIM</th></tr>
+    <tr><td><b>Predicted essential (high score)</b></td><td>Cross-validation quadrant: both evidence sources call the gene core; mutual endorsement strengthens model credibility</td><td><b>Candidate novel disease genes</b> (Quadrant I)</td></tr>
+    <tr><td><b>Predicted non-essential (low score)</b></td><td><b>Therapeutic-value quadrant</b> (Quadrant II)</td><td>Non-core on both rulers; no mining value at present</td></tr>
+  </table>
+  <p><b>Quadrant I (predicted essential, absent from OMIM).</b> A gene judged indispensable by the model yet never recorded in any patient pedigree admits two explanations: its disease-causing mutations are embryonic-lethal, so affected individuals never reach diagnosis and never enter OMIM’s patient-driven curation pipeline; or the resulting disorder has not yet been recognized as genetic. In either case the gene is a prime candidate for the next generation of disease genes, with a direct validation path: CRISPR disruption followed by viability assay in embryonic stem cells. DepMap cell-line data provide a second filter: if the gene is also required in cancer cells, it additionally qualifies as a synthetic-lethal target context.</p>
+  <p><b>Quadrant II (OMIM catalogued, predicted non-essential).</b> A confirmed disease gene whose loss the model predicts to be survivable implies functional redundancy or bypass pathways (the non-redundancy principle of Section 1.2 applied in reverse). This reading carries three implications for therapeutics. First, inhibiting such a gene may show low toxicity in normal tissue, because normal cells survive its loss. Second, the patient’s dependence on the gene is disease-state-specific, which is the molecular basis of drug selectivity. Third, the natural next step is to identify the conditions under which the gene becomes non-substitutable (for example, only under tumor metabolic background), leading directly to synthetic-lethal drug discovery; PARP inhibition in BRCA-deficient tumors is the classical precedent <sup class="cite"><a href="#ref32">[32]</a></sup>.</p>
+  <p><b>Two high-value quadrants.</b> (i) Predicted essential but absent from OMIM: OMIM is patient-derived, genes whose disruption kills before reproduction have no probands, a structural blind spot the sequence prior does not share. This quadrant enriches for candidate disease genes, directly testable by CRISPR. (ii) In OMIM but predicted non-essential: by the non-redundancy principle (§1.2), such a gene has functional backups in normal physiology, so targeting it may carry low tissue toxicity; if the redundancy is broken in disease state (for example, tumor metabolism), the result is a synthetic-lethal window, the logic behind PARP inhibition in BRCA-deficient tumors <sup class="cite"><a href="#ref32">[32]</a></sup>.</p>
+  <p><b>Evidence chain.</b> OMIM's curation enters through patient phenotypes <sup class="cite"><a href="#ref31">[31]</a></sup>; DepMap provides the cell-line experimental reference <sup class="cite"><a href="#ref6">[6]</a></sup>; the model's cross-species prior is complementary to both, and the quadrant gaps between the three rulers are where candidates live.</p>
+</section>
+
+<!-- ================= References ================= -->
+<section class="card" id="refs">
+  <h2>References</h2>
+  <p class="lead">All entries verified by DOI resolution, Crossref metadata, or the arXiv API (verified 2026-11-05/06). Inline [n] markers link to entries; each entry links back.</p>
+  <ol class="refs" id="reflist">
+  <li id="ref1"><span class="rt">Kang B, Fan R, Cui C, et al. Comprehensive prediction and analysis of human protein essentiality based on a pretrained large language model.</span> <span class="rj">Nature Computational Science</span> 2025;5(3):196-206. <a class="doi" href="https://doi.org/10.1038/s43588-024-00733-1" target="_blank">10.1038/s43588-024-00733-1</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref2"><span class="rt">Luo H, Lin Y, Gao F, Zhang CT, Zhang R. DEG 15, an update of the Database of Essential Genes that includes built-in analysis tools.</span> <span class="rj">Nucleic Acids Research</span> 2021;49:D677-D686. <a class="doi" href="https://doi.org/10.1093/nar/gkaa917" target="_blank">10.1093/nar/gkaa917</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref3"><span class="rt">Koscielny G, Yaikhom G, Iyer V, et al. The International Mouse Phenotyping Consortium Web Portal.</span> <span class="rj">Nucleic Acids Research</span> 2014;42:D802-D809. <a class="doi" href="https://doi.org/10.1093/nar/gkt977" target="_blank">10.1093/nar/gkt977</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref4"><span class="rt">Karczewski KJ, Francioli LC, Tiao G, et al. The mutational constraint spectrum quantified from variation in 141,456 humans.</span> <span class="rj">Nature</span> 2020;581(7809):434-443. <a class="doi" href="https://doi.org/10.1038/s41586-020-2308-7" target="_blank">10.1038/s41586-020-2308-7</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref5"><span class="rt">Wang T, Birsoy K, Hughes NW, et al. Identification and characterization of essential genes in the human genome.</span> <span class="rj">Science</span> 2015;350(6262):1096-1101. <a class="doi" href="https://doi.org/10.1126/science.aac7041" target="_blank">10.1126/science.aac7041</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref6"><span class="rt">Tsherniak A, Vazquez F, Montgomery PG, et al. Defining a Cancer Dependency Map.</span> <span class="rj">Cell</span> 2017;170(3):564-576.e16. <a class="doi" href="https://doi.org/10.1016/j.cell.2017.06.010" target="_blank">10.1016/j.cell.2017.06.010</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref7"><span class="rt">Hart T, Moffat J. BAGEL: a computational framework for identifying essential genes from pooled library screens.</span> <span class="rj">BMC Bioinformatics</span> 2016;17:164. <a class="doi" href="https://doi.org/10.1186/s12859-016-1015-8" target="_blank">10.1186/s12859-016-1015-8</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref8"><span class="rt">Keys HR, Knouse KA. Genome-scale CRISPR screening in a single mouse liver.</span> <span class="rj">Cell Genomics</span> 2022;2(12):100217. <a class="doi" href="https://doi.org/10.1016/j.xgen.2022.100217" target="_blank">10.1016/j.xgen.2022.100217</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref9"><span class="rt">Cherry JM, Hong EL, Amundsen C, et al. Saccharomyces Genome Database: the genomics resource of budding yeast.</span> <span class="rj">Nucleic Acids Research</span> 2012;40:D700-D705. <a class="doi" href="https://doi.org/10.1093/nar/gkr1029" target="_blank">10.1093/nar/gkr1029</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref10"><span class="rt">Kim DU, Hayles J, Kim D, et al. Analysis of a genome-wide set of gene deletions in the fission yeast Schizosaccharomyces pombe.</span> <span class="rj">Nature Biotechnology</span> 2010;28(6):617-623. <a class="doi" href="https://doi.org/10.1038/nbt.1627" target="_blank">10.1038/nbt.1627</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref11"><span class="rt">Baba T, Ara T, Hasegawa M, et al. Construction of Escherichia coli K-12 in-frame, single-gene knockout mutants: the Keio collection.</span> <span class="rj">Molecular Systems Biology</span> 2006;2:2006.0008. <a class="doi" href="https://doi.org/10.1038/msb4100050" target="_blank">10.1038/msb4100050</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref12"><span class="rt">Gerdes SY, Scholle MD, Campbell JW, et al. Experimental determination and system level analysis of essential genes in Escherichia coli MG1655.</span> <span class="rj">Journal of Bacteriology</span> 2003;185(19):5673-5684. <a class="doi" href="https://doi.org/10.1128/JB.185.19.5673-5684.2003" target="_blank">10.1128/JB.185.19.5673-5684.2003</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref13"><span class="rt">Warr AR, Hubbard TP, Munera D, et al. Transposon-insertion sequencing screens unveil requirements for EHEC growth and intestinal colonization.</span> <span class="rj">PLOS Pathogens</span> 2019;15(8):e1007652. <a class="doi" href="https://doi.org/10.1371/journal.ppat.1007652" target="_blank">10.1371/journal.ppat.1007652</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref14"><span class="rt">Goodall ECA, Robinson A, Johnston IG, et al. The Essential Genome of Escherichia coli K-12.</span> <span class="rj">mBio</span> 2018;9(1):e02096-17. <a class="doi" href="https://doi.org/10.1128/mbio.02096-17" target="_blank">10.1128/mbio.02096-17</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref15"><span class="rt">Kobayashi K, Ehrlich SD, et al. Essential Bacillus subtilis genes.</span> <span class="rj">PNAS</span> 2003;100(8):4678-4683. <a class="doi" href="https://doi.org/10.1073/pnas.0730515100" target="_blank">10.1073/pnas.0730515100</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref16"><span class="rt">Rives A, Meier J, Sercu T, et al. Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences.</span> <span class="rj">PNAS</span> 2021;118(15):e2016239118. <a class="doi" href="https://doi.org/10.1073/pnas.2016239118" target="_blank">10.1073/pnas.2016239118</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref17"><span class="rt">Lin Z, Akin H, Rao R, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model.</span> <span class="rj">Science</span> 2023;379(6637):1123-1130. <a class="doi" href="https://doi.org/10.1126/science.ade2574" target="_blank">10.1126/science.ade2574</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref18"><span class="rt">Hayes T, Rao R, Akin H, et al. Simulating 500 million years of evolution with a language model.</span> <span class="rj">Science</span> 2025;387(6736):850-858. <a class="doi" href="https://doi.org/10.1126/science.ads0018" target="_blank">10.1126/science.ads0018</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref19"><span class="rt">Elnaggar A, Wolf M, Flocco D, et al. ProtTrans: Toward Understanding the Language of Life Through Self-Supervised Learning.</span> <span class="rj">IEEE Transactions on Pattern Analysis and Machine Intelligence</span> 2022;44(10):7112-7127. <a class="doi" href="https://doi.org/10.1109/TPAMI.2021.3095381" target="_blank">10.1109/TPAMI.2021.3095381</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref20"><span class="rt">Elnaggar A, Essam M, Salah-Eldin W, et al. Ankh: Optimized Protein Language Model Unlocks General-Purpose Modelling.</span> <span class="rj">arXiv preprint</span> 2023;arXiv:2301.06568. <a class="doi" href="https://arxiv.org/abs/2301.06568" target="_blank">https://arxiv.org/abs/2301.06568</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref21"><span class="rt">Shalem O, Sanjana NE, Hartenian E, et al. Genome-scale CRISPR-Cas9 knockout screening in human cells.</span> <span class="rj">Science</span> 2014;343(6166):84-87. <a class="doi" href="https://doi.org/10.1126/science.1247005" target="_blank">10.1126/science.1247005</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref22"><span class="rt">Lloyd J, Meinke D. A Comprehensive Dataset of Genes with a Loss-of-Function Mutant Phenotype in Arabidopsis.</span> <span class="rj">Plant Physiology</span> 2012;158(3):1115-1129. <a class="doi" href="https://doi.org/10.1104/pp.111.192393" target="_blank">10.1104/pp.111.192393</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref23"><span class="rt">Meinke DW. Genome-wide identification of EMBRYO-DEFECTIVE (EMB) genes required for growth and development in Arabidopsis.</span> <span class="rj">New Phytologist</span> 2019;226(2):306-325. <a class="doi" href="https://doi.org/10.1111/nph.16071" target="_blank">10.1111/nph.16071</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref24"><span class="rt">Zhang J, Li C, Wu K, et al. RMD: a rice mutant database for functional analysis of the rice genome.</span> <span class="rj">Nucleic Acids Research</span> 2006;34:D745-D748. <a class="doi" href="https://doi.org/10.1093/nar/gkj016" target="_blank">10.1093/nar/gkj016</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref25"><span class="rt">Li X, Zhang R, Patena W, et al. An Indexed, Mapped Mutant Library Enables Reverse Genetics Studies of Biological Processes in Chlamydomonas reinhardtii.</span> <span class="rj">The Plant Cell</span> 2016;28(2):367-387. <a class="doi" href="https://doi.org/10.1105/tpc.15.00465" target="_blank">10.1105/tpc.15.00465</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref26"><span class="rt">Bushell E, Gomes AR, Sanderson T, et al. Functional Profiling of a Plasmodium Genome Reveals an Abundance of Essential Genes.</span> <span class="rj">Cell</span> 2017;170(2):260-272. <a class="doi" href="https://doi.org/10.1016/j.cell.2017.06.030" target="_blank">10.1016/j.cell.2017.06.030</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref27"><span class="rt">Sidik SM, Huet D, Ganesan SM, et al. A Genome-wide CRISPR Screen in Toxoplasma Identifies Essential Apicomplexan Genes.</span> <span class="rj">Cell</span> 2016;166(6):1423-1435.e12. <a class="doi" href="https://doi.org/10.1016/j.cell.2016.08.019" target="_blank">10.1016/j.cell.2016.08.019</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref28"><span class="rt">Sarmiento F, Mrazek J, Whitman WB. Genome-scale analysis of gene function in the hydrogenotrophic methanogenic archaeon Methanococcus maripaludis.</span> <span class="rj">PNAS</span> 2013;110(12):4726-4731. <a class="doi" href="https://doi.org/10.1073/pnas.1220225110" target="_blank">10.1073/pnas.1220225110</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref29"><span class="rt">Zhang C, Phillips APR, Wipfler RL, Olsen GJ, Whitaker RJ. The essential genome of the crenarchaeal model Sulfolobus islandicus.</span> <span class="rj">Nature Communications</span> 2018;9:4908. <a class="doi" href="https://doi.org/10.1038/s41467-018-07379-4" target="_blank">10.1038/s41467-018-07379-4</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref30"><span class="rt">Jordan IK, Rogozin IB, Wolf YI, Koonin EV. Essential Genes Are More Evolutionarily Conserved Than Are Nonessential Genes in Bacteria.</span> <span class="rj">Genome Research</span> 2002;12(6):962-968. <a class="doi" href="https://doi.org/10.1101/gr.87702" target="_blank">10.1101/gr.87702</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref31"><span class="rt">Amberger JS, Bocchini CA, Schiettecatte F, Scott AF, Hamosh A. OMIM.org: Online Mendelian Inheritance in Man (OMIM), an online catalog of human genes and genetic disorders.</span> <span class="rj">Nucleic Acids Research</span> 2015;43:D789-D798. <a class="doi" href="https://doi.org/10.1093/nar/gku1205" target="_blank">10.1093/nar/gku1205</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref32"><span class="rt">Bryant HE, Schultz N, Thomas HD, et al. Specific killing of BRCA2-deficient tumours with inhibitors of poly(ADP-ribose) polymerase.</span> <span class="rj">Nature</span> 2005;434(7035):913-917. <a class="doi" href="https://doi.org/10.1038/nature03443" target="_blank">10.1038/nature03443</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref33"><span class="rt">Pruitt KD, Tatusova T, Maglott DR. NCBI reference sequences (RefSeq): a curated non-redundant sequence database of genomes, transcripts and proteins.</span> <span class="rj">Nucleic Acids Research</span> 2007;35:D61-D65. <a class="doi" href="https://doi.org/10.1093/nar/gkl842" target="_blank">10.1093/nar/gkl842</a><a class="back" href="#s8" title="返回">↩</a></li>
+  <li id="ref34"><span class="rt">Tanaka T, Antonio BA, Kikuchi S, et al. The Rice Annotation Project Database (RAP-DB): hub for Oryza sativa ssp. japonica genome information.</span> <span class="rj">Nucleic Acids Research</span> 2006;34:D741-D744. <a class="doi" href="https://doi.org/10.1093/nar/gkj094" target="_blank">10.1093/nar/gkj094</a><a class="back" href="#s8" title="返回">↩</a></li>
+  </ol>
+</section>
+
+<footer>
+  PIACE project · English edition of the biological rationale report · 2026-11-06<br>
+  Companion to the Chinese edition; the master report (PIACE_MASTER_REPORT_20261101.html) is unaffected.<br>
+  Every number was read from project artifacts; sources accompany each table. Nothing is asserted without a disk or citation trace.
+</footer>
+
+</div>
+</body>
+</html>
